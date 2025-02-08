@@ -1,0 +1,6 @@
+
+Things to do
+1. Victory screen (confetti, fanfare music, flash, remove lines)
+2. Line color/thickness picker.
+3. Deselection of tiles
+4. Stop bouncing window for each new puzzle
