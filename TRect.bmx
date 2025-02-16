@@ -31,13 +31,27 @@ Type TRect
 		Return True
 	End Method
 	
-	Method Split:TRect[](horizontal:Int = True)
+	Method SplitHorizontal:TRect[]()
 		Local midx:Float = GetWidth() * 0.5 + x
+		Local a:TRect  = New TRect(x, y, midx, y2)
+		Local b:Trect  = New TRect(midx, y, x2 , y2)
+		Return [a, b]
+	End Method
+	
+	Method SplitVertical:TRect[]()
 		Local midy:Float = GetHeight() * 0.5 + y
-		If horizontal
-			Return [New TRect(x, y, midx, y2), New TRect(midx, y, x2 , y2)]
-		Else 
-			Return [New TRect(x, y, x2, midy), New TRect(x, midy, x2 , y2)]
-		End If 
+		Local a:TRect  = New TRect(x, y, x2, midy)
+		Local b:Trect  = New TRect(x, midy, x2 , y2)
+		Return [a, b]
+	End Method
+	
+		
+	Method equal:Int(other:TRect)
+	' Check to see that two rects are the same values (not identity)
+		If x <> other.x Return False
+		If y <> other.y Return False
+		If x2 <> other.x2 Return False
+		If y2 <> other.y2 Return False
+		Return True
 	End Method
 End Type

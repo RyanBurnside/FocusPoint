@@ -23,6 +23,7 @@ End Function
 
 Function drawLens(lens:TLens, source:TImage)
 	Local color:Int[3] ' temporary overwrite for current color
+	Local lineWidth:Int = GetLineWidth()
 	GetColor color[0], color[1], color[2]
 	
 	If lens.selected
@@ -30,32 +31,46 @@ Function drawLens(lens:TLens, source:TImage)
 	Else 
 		SetColor 255, 255, 255
 	EndIf
-
 	DrawSubImageRect(source, lens.position.x, lens.position.y, lens.position.GetWidth(), lens.position.GetHeight(),
 					lens.viewport.x, lens.viewport.y, lens.viewport.GetWidth(), lens.viewport.GetHeight())
 	SetColor color[0], color[1], color[2]
 	drawRectOutline(lens.position.x, lens.position.y, lens.position.x2, lens.position.y2)
+	SetLineWidth lineWidth
 End Function
 
-Function renderLenses(lensList:TList, background:TImage)
+Function renderLenses(lensList:TObjectList, background:TImage)
 	For Local l:TLens = EachIn lensList
 		drawLens l, background
 	Next
 End Function
 
-Function updateLenses(lensList:TList)
+Function checkSolved:Int(lensList:TObjectList)
+	' Iterate through all lenses if any aren't on the right view return false
+	For Local l:TLens = EachIn lensList
+		If Not l.viewportIsPosition() Then Return False
+	Next
+	Return True
+End Function
+
+Function updateLenses(lensList:TObjectList)
 	Local numSelected:Int = 0
 	Local swapQueue:TObjectList = New TObjectList() ' take two swap em at the endif > 1
-	
+	Local clicked:Int = MouseDown(MOUSE_LEFT)
+	FlushMouse()
 	For Local l:TLens = EachIn lensList
 		' We only allow marking 1
+		Local inside:Int = l.position.PointInside(MouseX(), MouseY())
+
 		Select True
-		Case l.selected 
+		Case l.selected And Not inside
 			swapQueue.AddLast(l)
-		Case MouseDown(MOUSE_LEFT) And l.position.PointInside(MouseX(), MouseY())
-			l.selected = True
-			swapQueue.AddLast(l)
-			FlushMouse()
+		Case clicked And inside
+			If Not l.selected 
+				l.selected = True
+				swapQueue.AddLast(l)
+			Else
+				l.selected = False
+			End If 
 		Case swapQueue.Count() > 1 
 			Exit ' early return, no more than 2 get to be swapped
 		End Select
@@ -71,7 +86,7 @@ Function updateLenses(lensList:TList)
 	End If 
 End Function 
 
-Function shuffleList:TList(list:TList)
+Function shuffleList:TObjectList(list:TObjectList)
 	' Mutates the sent list and returns it
 	If list.IsEmpty() Then Return list
 	
@@ -92,28 +107,21 @@ Function shuffleList:TList(list:TList)
 	Return list
 End Function
 
-Function subdivide:TList(lenses:TList, iterations:Int = 5, divisionsPerIteration:Int = 3)
+Function subdivide:TObjectList(lenses:TObjectList, iterations:Int = 5, divisionsPerIteration:Int = 3)
 	' This function takes a list of lenses (usually 1) and subdivides them randomly into new lenses
 	For Local i:Int = 0 To iterations
-		Local divisionsLeft:Int = divisionsPerIteration
 		shufflelist(lenses)
 		For Local subs:Int = 0 To divisionsPerIteration
-			Local temp:TLens = TLens(lenses.RemoveFirst())
-			Local splitDirection:Int = Rand(0, 1) ' horiz = 1 vert = 0
-			' Too tall
-			If temp.viewport.GetWidth() < temp.viewport.GetHeight() 
-				splitDirection = 0
+			Local temp:Object = lenses.RemoveFirst()
+			If TLens(temp).viewport.GetWidth() > TLens(temp).viewport.GetHeight()
+				For Local l:TLens = EachIn TLens(temp).SplitHorizontal()
+					lenses.AddLast(l)
+				Next
+			Else
+				For Local l:TLens = EachIn TLens(temp).SplitVertical()
+					lenses.AddLast(l)
+				Next
 			End If
-			' too wide
-			If temp.viewport.GetWidth() > temp.viewport.GetHeight() 
-				splitDirection = 1
-			End If
-				
-			For Local l:TLens = EachIn temp.Split(splitDirection)
-				lenses.AddLast(l)
-				divisionsLeft :- 1
-			Next
-			If divisionsLeft = 0 Then Exit
 		Next
 	Next
 
@@ -129,7 +137,7 @@ Function pickRandImage:TImage(directory:String)
 	Return LoadImage(imageList.ValueAtIndex(Rand(0, imageList.count() - 1)), 0)
 End Function
 
-Function resetBackground:TImage(lenses:TList)
+Function resetBackground:TImage(lenses:TObjectList)
 	Local background:TImage = pickRandImage("./Images")
 	lenses.Clear()
 	
@@ -143,13 +151,12 @@ End Function
 	
 Function Main()
 	SeedRnd MilliSecs()	
-	Local lenses:TList = New TList
-	Local lenses2:TList = New TList
+	Local lenses:TObjectList = New TObjectList
 	Local background:TImage = resetBackground(lenses)
 
 	AppTitle = "Focus Point Puzzle - Original Concept Alexey Pajitnov"
 	Graphics background.width, background.height
-	
+
 	' Driver loop 
 	While Not (KeyDown(KEY_ESCAPE) Or KeyDown(KEY_Q))
 		Cls
@@ -161,6 +168,9 @@ Function Main()
 		SetColor 255, 0, 0	
 		updateLenses(lenses)
 		renderLenses(lenses, background)
+		If checkSolved(lenses)
+			DrawText("SOLVED", 32 ,32)
+		EndIf
 		Flip	
 	Wend
 End Function
